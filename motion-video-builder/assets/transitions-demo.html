@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Slide transitions — pick the ones you want</title>
+<style>
+/* Set these from the client's style sheet before showing the page, so examples look like their brand. */
+:root{
+  --a-bg:#15171C; --a-fg:#F3F3EF;      /* slide A */
+  --b-bg:#F3F3EF; --b-fg:#1C2433;      /* slide B */
+  --wipe:#C9A23A; --dip:#000;
+  --font-display: Georgia, serif; --font-body: system-ui, sans-serif;
+}
+body{margin:0;background:#0f1013;color:#e6e6e6;font:15px/1.45 system-ui,sans-serif;padding:32px}
+h1{font-weight:600;font-size:22px;margin:0 0 6px}
+p.lead{margin:0 0 28px;color:#aaa;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:28px}
+.card h2{font-size:16px;font-weight:600;margin:10px 0 2px}
+.card p{margin:0;color:#aaa;font-size:14px}
+.mini{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:6px;background:#000}
+.s{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 9%;box-sizing:border-box}
+.s b{font:400 clamp(22px,3.2vw,40px)/1.05 var(--font-display)}
+.s span{font:400 clamp(11px,1.1vw,14px)/1.4 var(--font-body);opacity:.8;margin-top:8px}
+.A{background:var(--a-bg);color:var(--a-fg)} .B{background:var(--b-bg);color:var(--b-fg)}
+.bar{position:absolute;inset:0;background:var(--wipe);z-index:5;transform:translateX(-101%)}
+.dip{position:absolute;inset:0;background:var(--dip);z-index:4;opacity:0}
+</style>
+</head>
+<body>
+<h1>Slide transitions</h1>
+<p class="lead">Each example loops between two slides. Pick every transition you'd like to use — then we'll decide which one is the default between slides and where any others go (for example, only at section changes).</p>
+<div class="grid" id="grid"></div>
+<script>
+const T = [
+  ['fade','Cross-fade','The new slide fades in over the old one. Calm and neutral; works for almost any brand.',.7],
+  ['cut','Cut','Instant change, no animation. Fast, editorial, lets the text animations carry the motion.',0],
+  ['push','Push','The new slide pushes the old one out to the side. Feels like moving forward through a story.',.8],
+  ['slide-over','Slide over','The new slide slides in on top of the old one, which stays still. Like turning a card.',.8],
+  ['reveal','Reveal','The new slide is uncovered from one edge to the other. Clean and graphic.',.8],
+  ['rise','Rise','The new slide fades in while moving up slightly — the same motion as the text.',.7],
+  ['dip','Dip to color','Fades out to a solid color, then into the next slide. Marks a clear break or new chapter.',1.0],
+  ['wipe','Color wipe','A brand-color bar sweeps across and reveals the next slide. Energetic; best kept for section changes.',.9],
+];
+const clamp=x=>x<0?0:x>1?1:x, eio=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2, eo=p=>1-Math.pow(1-p,3);
+const grid=document.getElementById('grid');
+const cards=T.map(([k,name,desc,d],i)=>{
+  const c=document.createElement('div'); c.className='card';
+  c.innerHTML=`<div class="mini"><div class="s A"><b>Slide A</b><span>Example heading and a line of body text</span></div>
+    <div class="s B"><b>Slide B</b><span>The next idea in the video</span></div><div class="dip"></div><div class="bar"></div></div>
+    <h2>${i+1} · ${name}</h2><p>${desc}</p>`;
+  grid.appendChild(c);
+  const [A,B]=c.querySelectorAll('.s'); return {k,d,A,B,dip:c.querySelector('.dip'),bar:c.querySelector('.bar')};
+});
+const HOLD=1.4;
+function apply(c,prev,cur,raw){
+  const e=eio(raw);
+  for(const el of [c.A,c.B]){el.style.transform='';el.style.clipPath='';el.style.opacity=0;el.style.zIndex=1;}
+  c.dip.style.opacity=0; c.bar.style.transform='translateX(-101%)';
+  cur.style.zIndex=2; let po=1,co=1; const mv=(el,k)=>el.style.transform=`translateX(${k*100}%)`;
+  switch(c.k){
+    case 'fade': co=e; break;
+    case 'cut': co=raw>0?1:0; break;
+    case 'push': mv(cur,1-e); mv(prev,-e); break;
+    case 'slide-over': mv(cur,1-e); break;
+    case 'reveal': cur.style.clipPath=`inset(0 ${(1-e)*100}% 0 0)`; break;
+    case 'rise': co=eo(raw); cur.style.transform=`translateY(${(1-eo(raw))*12}%)`; break;
+    case 'dip': if(raw<.5){co=0;c.dip.style.opacity=eio(raw*2);}else{po=0;c.dip.style.opacity=1-eio((raw-.5)*2);} break;
+    case 'wipe': co=raw>=.5?1:0; c.bar.style.transform=`translateX(${raw<.5?-101+101*eio(raw*2):101*eio((raw-.5)*2)}%)`; break;
+  }
+  prev.style.opacity=po; cur.style.opacity=co;
+}
+function tick(now){
+  const t=now/1000;
+  for(const c of cards){
+    const d=Math.max(c.d,.35), L=2*(HOLD+d), x=t%L;
+    if(x<HOLD) apply(c,c.B,c.A,1);
+    else if(x<HOLD+d) apply(c,c.A,c.B,c.d?clamp((x-HOLD)/d):1);
+    else if(x<2*HOLD+d) apply(c,c.A,c.B,1);
+    else apply(c,c.B,c.A,c.d?clamp((x-2*HOLD-d)/d):1);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
